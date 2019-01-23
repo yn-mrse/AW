@@ -70,6 +70,7 @@ void PurePursuitNode::initForROS()
   pub15_ = nh_.advertise<visualization_msgs::Marker>("trajectory_circle_mark", 0);
   pub16_ = nh_.advertise<std_msgs::Float32>("angular_gravity", 0);
   pub17_ = nh_.advertise<std_msgs::Float32>("deviation_of_current_position", 0);
+  pub18_ = nh_.advertise<visualization_msgs::Marker>("expanded_waypoints_mark", 0);
   // pub7_ = nh.advertise<std_msgs::Bool>("wf_stat", 0);
 }
 
@@ -101,6 +102,7 @@ void PurePursuitNode::run()
     pub12_.publish(displayNextTarget(pp_.getPoseOfNextTarget()));
     pub15_.publish(displayTrajectoryCircle(
         waypoint_follower::generateTrajectoryCircle(pp_.getPoseOfNextTarget(), pp_.getCurrentPose())));
+    pub18_.publish(displayExpandWaypoints(pp_.getCurrentWaypoints(), expand_size_));
     std_msgs::Float32 angular_gravity_msg;
     angular_gravity_msg.data = computeAngularGravity(computeCommandVelocity(), kappa);
     pub16_.publish(angular_gravity_msg);
@@ -115,7 +117,7 @@ void PurePursuitNode::run()
   }
 }
 
-void PurePursuitNode::publishTwistStamped(const bool &can_get_curvature, const double &kappa) const
+void PurePursuitNode::publishTwistStamped(const bool& can_get_curvature, const double& kappa) const
 {
   geometry_msgs::TwistStamped ts;
   ts.header.stamp = ros::Time::now();
@@ -124,14 +126,14 @@ void PurePursuitNode::publishTwistStamped(const bool &can_get_curvature, const d
   pub1_.publish(ts);
 }
 
-void PurePursuitNode::publishControlCommandStamped(const bool &can_get_curvature, const double &kappa) const
+void PurePursuitNode::publishControlCommandStamped(const bool& can_get_curvature, const double& kappa) const
 {
   if (!publishes_for_steering_robot_)
     return;
 
   autoware_msgs::ControlCommandStamped ccs;
   ccs.header.stamp = ros::Time::now();
-  ccs.cmd.linear_velocity = can_get_curvature ? computeCommandVelocity() : 0;
+  ccs.cmd.linear_velocity = can_get_curvature ? fabs(computeCommandVelocity()) : 0;
   ccs.cmd.linear_acceleration = can_get_curvature ? computeCommandAccel() : 0;
   ccs.cmd.steering_angle = can_get_curvature ? convertCurvatureToSteeringAngle(wheel_base_, kappa) : 0;
 
@@ -152,8 +154,9 @@ double PurePursuitNode::computeLookaheadDistance() const
 
 double PurePursuitNode::computeCommandVelocity() const
 {
+  const int sgn = (command_linear_velocity_ < 0) ? -1 : 1;
   if (param_flag_ == enumToInteger(Mode::dialog))
-    return kmph2mps(const_velocity_);
+    return sgn * kmph2mps(const_velocity_);
 
   return command_linear_velocity_;
 }
@@ -208,13 +211,13 @@ void PurePursuitNode::publishDeviationCurrentPosition(const geometry_msgs::Point
   pub17_.publish(msg);
 }
 
-void PurePursuitNode::callbackFromCurrentPose(const geometry_msgs::PoseStampedConstPtr &msg)
+void PurePursuitNode::callbackFromCurrentPose(const geometry_msgs::PoseStampedConstPtr& msg)
 {
   pp_.setCurrentPose(msg);
   is_pose_set_ = true;
 }
 
-void PurePursuitNode::callbackFromCurrentVelocity(const geometry_msgs::TwistStampedConstPtr &msg)
+void PurePursuitNode::callbackFromCurrentVelocity(const geometry_msgs::TwistStampedConstPtr& msg)
 {
   current_linear_velocity_ = msg->twist.linear.x;
   pp_.setCurrentVelocity(current_linear_velocity_);
@@ -223,16 +226,46 @@ void PurePursuitNode::callbackFromCurrentVelocity(const geometry_msgs::TwistStam
 
 void PurePursuitNode::callbackFromWayPoints(const autoware_msgs::LaneConstPtr &msg)
 {
-  if (!msg->waypoints.empty())
-    command_linear_velocity_ = msg->waypoints.at(0).twist.twist.linear.x;
-  else
-    command_linear_velocity_ = 0;
-
-  pp_.setCurrentWaypoints(msg->waypoints);
+  command_linear_velocity_ = (!msg->waypoints.empty()) ? msg->waypoints.at(0).twist.twist.linear.x : 0;
+  static int direction = 1;
+  direction = (command_linear_velocity_ > 0.0) ? 1 : (command_linear_velocity_ < 0.0) ? -1 : direction;
+  autoware_msgs::Lane expanded_lane(*msg);
+  expand_size_ = -expanded_lane.waypoints.size();
+  connectVirtualLastWaypoints(&expanded_lane, direction);
+  expand_size_ += expanded_lane.waypoints.size();
+  pp_.setCurrentWaypoints(expanded_lane.waypoints);
   is_waypoint_set_ = true;
 }
 
-double convertCurvatureToSteeringAngle(const double &wheel_base, const double &kappa)
+void PurePursuitNode::connectVirtualLastWaypoints(autoware_msgs::Lane* lane, int direction)
+{
+  if (lane->waypoints.empty())
+  {
+    return;
+  }
+  static double interval = 1.0;
+  const geometry_msgs::Pose& pn = lane->waypoints.back().pose.pose;
+  if (lane->waypoints.size() > 2)
+  {
+    const int prev = lane->waypoints.size() - 2;
+    const geometry_msgs::Pose& pn_prev = lane->waypoints[prev].pose.pose;
+    interval = getPlaneDistance(pn.position, pn_prev.position);
+  }
+
+  autoware_msgs::Waypoint virtual_last_waypoint;
+  virtual_last_waypoint.pose.pose.orientation = pn.orientation;
+  virtual_last_waypoint.twist.twist.linear.x = 0.0;
+
+  geometry_msgs::Point virtual_last_point_rlt;
+  for (double dist = minimum_lookahead_distance_; dist > 0.0; dist -= interval)
+  {
+    virtual_last_point_rlt.x += interval * direction;
+    virtual_last_waypoint.pose.pose.position = calcAbsoluteCoordinate(virtual_last_point_rlt, pn);
+    lane->waypoints.push_back(virtual_last_waypoint);
+  }
+}
+
+double convertCurvatureToSteeringAngle(const double& wheel_base, const double& kappa)
 {
   return atan(wheel_base * kappa);
 }
