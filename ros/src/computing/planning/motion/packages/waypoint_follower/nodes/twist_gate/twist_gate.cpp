@@ -390,8 +390,6 @@ void TwistGate::state_callback(const std_msgs::StringConstPtr& input_msg)
     if (input_msg->data.find("WaitOrder") != std::string::npos)
     {
       twist_gate_msg_.gear = CMD_GEAR_P;
-      emergency_stop_msg_.data = false;
-      send_emergency_cmd = false;
     }
     // Set Drive Gear
     else
@@ -409,6 +407,13 @@ void TwistGate::state_callback(const std_msgs::StringConstPtr& input_msg)
       is_state_drive_ = false;
     }
     vehicle_cmd_pub_.publish(twist_gate_msg_);
+
+    // reset emergency flags
+    if (input_msg->data.find("VehicleReady") != std::string::npos)
+    {
+      emergency_stop_msg_.data = false;
+      send_emergency_cmd = false;
+    }
   }
 }
 
