@@ -53,56 +53,55 @@
 #include "tablet_socket_msgs/gear_cmd.h"
 #include "tablet_socket_msgs/mode_cmd.h"
 //headers in Autowae Health Checker
-#include <autoware_health_checker/node_status_publisher.h>
+#include <autoware_health_checker/health_checker/health_checker.h>
 
 class TwistGate
 {
   using remote_msgs_t = autoware_msgs::RemoteCmd;
   using vehicle_cmd_msg_t = autoware_msgs::VehicleCmd;
 
-public:
-  TwistGate(const ros::NodeHandle& nh, const ros::NodeHandle& private_nh);
-  ~TwistGate();
+  public:
+    TwistGate(const ros::NodeHandle& nh, const ros::NodeHandle& private_nh);
+    ~TwistGate();
+  private:
+    void check_state();
+    void watchdog_timer();
+    void remote_cmd_callback(const remote_msgs_t::ConstPtr& input_msg);
+    void auto_cmd_twist_cmd_callback(const geometry_msgs::TwistStamped::ConstPtr& input_msg);
+    void mode_cmd_callback(const tablet_socket_msgs::mode_cmd::ConstPtr& input_msg);
+    void gear_cmd_callback(const tablet_socket_msgs::gear_cmd::ConstPtr& input_msg);
+    void accel_cmd_callback(const autoware_msgs::AccelCmd::ConstPtr& input_msg);
+    void steer_cmd_callback(const autoware_msgs::SteerCmd::ConstPtr& input_msg);
+    void brake_cmd_callback(const autoware_msgs::BrakeCmd::ConstPtr& input_msg);
+    void lamp_cmd_callback(const autoware_msgs::LampCmd::ConstPtr& input_msg);
+    void ctrl_cmd_callback(const autoware_msgs::ControlCommandStamped::ConstPtr& input_msg);
+    void state_callback(const std_msgs::StringConstPtr& input_msg);
 
-private:
-  void check_state();
-  void watchdog_timer();
-  void remote_cmd_callback(const remote_msgs_t::ConstPtr& input_msg);
-  void auto_cmd_twist_cmd_callback(const geometry_msgs::TwistStamped::ConstPtr& input_msg);
-  void mode_cmd_callback(const tablet_socket_msgs::mode_cmd::ConstPtr& input_msg);
-  void gear_cmd_callback(const tablet_socket_msgs::gear_cmd::ConstPtr& input_msg);
-  void accel_cmd_callback(const autoware_msgs::AccelCmd::ConstPtr& input_msg);
-  void steer_cmd_callback(const autoware_msgs::SteerCmd::ConstPtr& input_msg);
-  void brake_cmd_callback(const autoware_msgs::BrakeCmd::ConstPtr& input_msg);
-  void lamp_cmd_callback(const autoware_msgs::LampCmd::ConstPtr& input_msg);
-  void ctrl_cmd_callback(const autoware_msgs::ControlCommandStamped::ConstPtr& input_msg);
-  void state_callback(const std_msgs::StringConstPtr& input_msg);
+    bool is_using_decisionmaker();
+    void reset_vehicle_cmd_msg();
 
-  bool is_using_decisionmaker();
-  void reset_vehicle_cmd_msg();
+    ros::NodeHandle nh_;
+    ros::NodeHandle private_nh_;
+    std::shared_ptr<autoware_health_checker::HealthChecker> node_status_pub_ptr_;
+    ros::Publisher emergency_stop_pub_;
+    ros::Publisher control_command_pub_;
+    ros::Publisher vehicle_cmd_pub_;
+    ros::Publisher state_cmd_pub_;
+    ros::Subscriber remote_cmd_sub_;
+    std::map<std::string , ros::Subscriber> auto_cmd_sub_stdmap_;
 
-  ros::NodeHandle nh_;
-  ros::NodeHandle private_nh_;
-  std::shared_ptr<autoware_health_checker::NodeStatusPublisher> node_status_pub_ptr_;
-  ros::Publisher emergency_stop_pub_;
-  ros::Publisher control_command_pub_;
-  ros::Publisher vehicle_cmd_pub_;
-  ros::Publisher state_cmd_pub_;
-  ros::Subscriber remote_cmd_sub_;
-  std::map<std::string, ros::Subscriber> auto_cmd_sub_stdmap_;
+    vehicle_cmd_msg_t twist_gate_msg_;
+    std_msgs::Bool emergency_stop_msg_;
+    ros::Time remote_cmd_time_;
+    ros::Duration timeout_period_;
 
-  vehicle_cmd_msg_t twist_gate_msg_;
-  std_msgs::Bool emergency_stop_msg_;
-  ros::Time remote_cmd_time_;
-  ros::Duration timeout_period_;
+    std::thread watchdog_timer_thread_;
+    enum class CommandMode{AUTO=1, REMOTE=2} command_mode_, previous_command_mode_;
+    std_msgs::String command_mode_topic_;
 
-  std::thread watchdog_timer_thread_;
-  enum class CommandMode{AUTO = 1, REMOTE = 2} command_mode_, previous_command_mode_;
-  std_msgs::String command_mode_topic_;
-
-  bool is_state_drive_ = true;
-  // still send is true
-  bool send_emergency_cmd = false;
+    bool is_state_drive_ = true;
+    // still send is true
+    bool send_emergency_cmd = false;
 };
 
 TwistGate::TwistGate(const ros::NodeHandle& nh, const ros::NodeHandle& private_nh)
@@ -112,7 +111,7 @@ TwistGate::TwistGate(const ros::NodeHandle& nh, const ros::NodeHandle& private_n
   , command_mode_(CommandMode::AUTO)
   , previous_command_mode_(CommandMode::AUTO)
 {
-  node_status_pub_ptr_ = std::make_shared<autoware_health_checker::NodeStatusPublisher>(nh_,private_nh_);
+  node_status_pub_ptr_ = std::make_shared<autoware_health_checker::HealthChecker>(nh_,private_nh_);
   emergency_stop_pub_ = nh_.advertise<std_msgs::Bool>("/emergency_stop", 1, true);
   control_command_pub_ = nh_.advertise<std_msgs::String>("/ctrl_mode", 1);
   vehicle_cmd_pub_ = nh_.advertise<vehicle_cmd_msg_t>("/vehicle_cmd", 1, true);
@@ -280,7 +279,6 @@ void TwistGate::remote_cmd_callback(const remote_msgs_t::ConstPtr& input_msg)
 void TwistGate::auto_cmd_twist_cmd_callback(const geometry_msgs::TwistStamped::ConstPtr& input_msg)
 {
   node_status_pub_ptr_->NODE_ACTIVATE();
-  node_status_pub_ptr_->CHECK_RATE("/topic/rate/twist_cmd/slow", 8, 5, 1, "topic twist_cmd subscribe rate low.");
   if (command_mode_ == CommandMode::AUTO)
   {
     twist_gate_msg_.header.frame_id = input_msg->header.frame_id;
