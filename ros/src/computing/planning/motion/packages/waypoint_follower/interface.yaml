@@ -8,9 +8,9 @@
   publish: [/twist_cmd]
   subscribe: [/twist_raw, /config/twist_filter]
 - name: /twist_gate
-  publish: [/emergency_stop, /ctrl_mode, /vehicle_cmd, /state_cmd]
+  publish: [/vehicle_cmd, /state_cmd]
   subscribe: [/remote_cmd, /twist_cmd, /mode_cmd, /gear_cmd, /accel_cmd,
-    /steer_cmd, /brake_cmd, /lamp_cmd, /ctrl_cmd]
+    /steer_cmd, /brake_cmd, /lamp_cmd, /ctrl_cmd, /emergency_velocity]
 - name: /wf_simulator
   publish: [/sim_pose, /sim_velocity]
   subscribe: [/twist_cmd, /base_waypoints, /closest_waypoint,

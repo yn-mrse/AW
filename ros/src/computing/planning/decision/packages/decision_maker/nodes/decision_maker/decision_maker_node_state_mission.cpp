@@ -92,12 +92,22 @@ void DecisionMakerNode::entryMissionCheckState(cstring_t& state_name, int status
 }
 void DecisionMakerNode::updateMissionCheckState(cstring_t& state_name, int status)
 {
+  static bool publish_help_text = true;
+
   if (isEventFlagTrue("received_finalwaypoints") && current_status_.closest_waypoint != -1)
   {
     if (current_status_.finalwaypoints.waypoints.size() < 5)
       publishOperatorHelpMessage("Finalwaypoints is too short.\nIf you wont to Engage, please publish mission_is_compatible key by state_cmd.");
     else
       tryNextState("mission_is_compatible");
+  }
+  else if(publish_help_text)
+  {
+    if (current_status_.closest_waypoint == -1)
+      publishOperatorHelpMessage("[ERROR]Couldn't received \"closest_waypoint\" or its value is -1.");
+    if (!isEventFlagTrue("received_finalwaypoints"))
+      publishOperatorHelpMessage("[ERROR]Couldn't received \"final_waypoints\".");
+    publish_help_text = false;
   }
 }
 
