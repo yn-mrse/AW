@@ -10,6 +10,7 @@ find_package(catkin REQUIRED COMPONENTS
   autoware_map_msgs
   vector_map
   vector_map_msgs
+  op_planner
 )
 
 set(CMAKE_CXX_FLAGS "-O2 -Wall ${CMAKE_CXX_FLAGS}")
@@ -17,7 +18,7 @@ set(CMAKE_CXX_FLAGS "-O2 -Wall ${CMAKE_CXX_FLAGS}")
 catkin_package(
  INCLUDE_DIRS include
  LIBRARIES autoware_map
- CATKIN_DEPENDS roscpp tf visualization_msgs geometry_msgs autoware_map_msgs vector_map vector_map_msgs
+ CATKIN_DEPENDS roscpp tf visualization_msgs geometry_msgs autoware_map_msgs vector_map vector_map_msgs op_planner
 )
 
 include_directories(
@@ -38,6 +39,13 @@ add_executable( autoware2vectormap_converter
 
 add_dependencies( autoware2vectormap_converter ${catkin_EXPORTED_TARGETS})
 target_link_libraries( autoware2vectormap_converter ${catkin_LIBRARIES} autoware_map)
+
+add_executable( opendrive2autoware_converter
+                nodes/opendrive2autoware_converter/opendrive2autoware_converter.cpp
+                nodes/opendrive2autoware_converter/opendrive2autoware_converter_core.cpp)
+
+add_dependencies( opendrive2autoware_converter ${catkin_EXPORTED_TARGETS})
+target_link_libraries( opendrive2autoware_converter ${catkin_LIBRARIES} autoware_map)
 
 ## Install executables and/or libraries
 install(TARGETS autoware_map autoware2vectormap_converter

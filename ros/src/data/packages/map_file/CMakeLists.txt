@@ -9,18 +9,19 @@ find_package(autoware_msgs REQUIRED)
 
 find_package(vector_map REQUIRED)
 find_package(catkin REQUIRED COMPONENTS
-  roscpp
-  std_msgs
-  visualization_msgs
-  geometry_msgs
-  tf
-  pcl_ros
-  tf2_ros
-  tf2_geometry_msgs
-  autoware_msgs
-  autoware_map_msgs
-  autoware_map
-)
+        roscpp
+        std_msgs
+        visualization_msgs
+        geometry_msgs
+        tf
+        pcl_ros
+        tf2_ros
+        tf2_geometry_msgs
+        autoware_msgs
+        vector_map
+        autoware_map_msgs
+        autoware_map
+        )
 
 find_package(PCL REQUIRED COMPONENTS io)
 # See: https://github.com/ros-perception/perception_pcl/blob/lunar-devel/pcl_ros/CMakeLists.txt#L10-L22
@@ -79,10 +80,16 @@ target_link_libraries(points_map_filter ${catkin_LIBRARIES})
 add_dependencies(points_map_filter ${catkin_EXPORTED_TARGETS})
 
 ## Install executables and/or libraries
-install(TARGETS get_file points_map_loader vector_map_loader autoware_map_loader
-  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
+install(TARGETS
+        get_file
+        points_map_loader
+        vector_map_loader
+        autoware_map_loader
+    points_map_filter
+    ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+    LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+    RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+        )
 
 ## Install project namespaced headers
 install(DIRECTORY include/${PROJECT_NAME}/
