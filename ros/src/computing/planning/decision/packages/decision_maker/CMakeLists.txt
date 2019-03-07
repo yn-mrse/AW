@@ -30,6 +30,8 @@ find_package(catkin REQUIRED COMPONENTS
         autoware_msgs
         autoware_config_msgs
         vector_map_msgs
+        rostest
+        rosunit
         )
 
 catkin_package(
@@ -42,7 +44,6 @@ catkin_package(
         vector_map_msgs
         vector_map
         jsk_recognition_msgs
-        vector_map_msgs
         amathutils_lib
         state_machine_lib
 )
@@ -79,7 +80,39 @@ install(TARGETS decision_maker_node
         RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
         )
 
-install(DIRECTORY launch
-        DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}/launch/
+## Install project namespaced headers
+install(DIRECTORY include/
+        DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION})
+
+install(DIRECTORY launch/
+        DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/launch
         PATTERN ".svn" EXCLUDE
         )
+
+install(FILES
+        autoware_state_behavior.yaml
+        autoware_state_motion.yaml
+        autoware_state_mission.yaml
+        autoware_state_vehicle.yaml
+        DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
+
+if(CATKIN_ENABLE_TESTING)
+  find_package(rostest REQUIRED)
+  add_rostest_gtest(test-decision_maker
+    test/test_decision_maker.test
+    test/src/test_main.cpp
+    test/src/test_node_decision.cpp
+    test/src/test_node_state_drive.cpp
+    nodes/decision_maker/decision_maker_node_core.cpp
+    nodes/decision_maker/decision_maker_node_decision.cpp
+    nodes/decision_maker/decision_maker_node_init.cpp
+    nodes/decision_maker/decision_maker_node_callback.cpp
+    nodes/decision_maker/decision_maker_node_state_vehicle.cpp
+    nodes/decision_maker/decision_maker_node_state_mission.cpp
+    nodes/decision_maker/decision_maker_node_state_behavior.cpp
+    nodes/decision_maker/decision_maker_node_state_motion.cpp
+    nodes/decision_maker/decision_maker_node_publish.cpp
+    nodes/decision_maker/cross_road_area.cpp)
+  add_dependencies(test-decision_maker ${catkin_EXPORTED_TARGETS})
+  target_link_libraries(test-decision_maker ${catkin_LIBRARIES} ${vector_map_LIBRARIES})
+endif()
