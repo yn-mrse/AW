@@ -103,8 +103,6 @@ private:
   // functions
   void publishTwistStamped(const bool &can_get_curvature, const double &kappa) const;
   void publishControlCommandStamped(const bool &can_get_curvature, const double &kappa) const;
-  void publishDeviationCurrentPosition(const geometry_msgs::Point &point,
-                                       const std::vector<autoware_msgs::Waypoint> &waypoints) const;
   void connectVirtualLastWaypoints(autoware_msgs::Lane* expanded_lane, int direction);
 
   double computeLookaheadDistance() const;
