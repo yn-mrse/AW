@@ -252,6 +252,8 @@ static unsigned int points_map_num = 0;
 
 pthread_mutex_t mutex;
 
+static MatchingScore<pcl::PointXYZ> matching_score_;
+
 static pose convertPoseIntoRelativeCoordinate(const pose &target_pose, const pose &reference_pose)
 {
     tf::Quaternion target_q;
@@ -275,7 +277,6 @@ static pose convertPoseIntoRelativeCoordinate(const pose &target_pose, const pos
 
     return trans_target_pose;
 }
-static MatchingScore<pcl::PointXYZ> matching_score_;
 
 static void param_callback(const autoware_config_msgs::ConfigNDT::ConstPtr& input)
 {
@@ -1395,7 +1396,6 @@ static void points_callback(const sensor_msgs::PointCloud2::ConstPtr& input)
     matching_end = std::chrono::system_clock::now();
     exe_time = std::chrono::duration_cast<std::chrono::microseconds>(matching_end - matching_start).count() / 1000.0;
     time_ndt_matching.data = exe_time;
-    health_checker_ptr_->CHECK_MAX_VALUE("time_ndt_matching",time_ndt_matching.data,50,70,100,"value time_ndt_matching is too high.");
     time_ndt_matching_pub.publish(time_ndt_matching);
 
     // Set values for /estimate_twist
@@ -1413,8 +1413,6 @@ static void points_callback(const sensor_msgs::PointCloud2::ConstPtr& input)
     geometry_msgs::Vector3Stamped estimate_vel_msg;
     estimate_vel_msg.header.stamp = current_scan_time;
     estimate_vel_msg.vector.x = current_velocity;
-    health_checker_ptr_->CHECK_MAX_VALUE("estimate_twist_linear",current_velocity,5,10,15,"value linear estimated twist is too high.");
-    health_checker_ptr_->CHECK_MAX_VALUE("estimate_twist_angular",angular_velocity,5,10,15,"value linear angular twist is too high.");
     estimated_vel_pub.publish(estimate_vel_msg);
 
     // Set values for /ndt_stat
@@ -1454,6 +1452,8 @@ static void points_callback(const sensor_msgs::PointCloud2::ConstPtr& input)
     std_msgs::Float32 matching_score_msg;
     matching_score_msg.data = matching_score;
     matching_score_pub.publish(matching_score_msg);
+    health_checker_ptr_->CHECK_MIN_VALUE("ndt_matching_score", matching_score, 0.7, 0.3, 0.3,
+      "ndt matching score is too low.");
 
     if(matching_score_histogram_pub.getNumSubscribers() > 0)
     {
