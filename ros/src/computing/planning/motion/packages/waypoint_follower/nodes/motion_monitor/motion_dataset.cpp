@@ -92,10 +92,14 @@ const std::pair<int, int> MotionDataset::calcNearestPair(unsigned int search_wid
     distance[dist] = i;
   }
   const int nearest = distance.begin()->second;
-  const int other =
+  int other =
     (nearest == location_.front().waypoint_index) ? location_.front().waypoint_index - 1 :
-    (nearest == end_idx) ? end_idx + 1 :
-    std::find_if(distance.begin(), distance.end(), [&](std::pair<double, int> dataset)
-      { return (dataset.second == nearest + 1) || (dataset.second == nearest - 1); })->second;
+    (nearest == end_idx) ? end_idx + 1 : -1;
+  if (other < 0)
+  {
+    auto found = std::find_if(distance.begin(), distance.end(), [&](std::pair<double, int> dataset)
+      { return (dataset.second == nearest + 1) || (dataset.second == nearest - 1); });
+    other = (found != distance.end()) ? found->second : (nearest == 0) ? nearest + 1 : nearest - 1;
+  }
   return std::make_pair(nearest, other);
 }
