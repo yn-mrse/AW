@@ -83,6 +83,7 @@ const std::pair<int, int> MotionDataset::calcNearestPair(unsigned int search_wid
   }
   const geometry_msgs::Point& pos = pose_.front().pose.position;
   const int end_idx = std::max(location_.front().waypoint_index - (int)search_width, 0);
+  const int start_idx = std::min(location_.front().waypoint_index + 1, (int)lane_.front().waypoints.size() - 1);
   std::map<double, int> distance;
   for (int i = location_.front().waypoint_index; i >= end_idx; --i)
   {
